@@ -123,6 +123,62 @@
             margin-top: 10px;
             display: inline-block;
         }
+        .search-container {
+            margin-bottom: 20px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        .or-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+        .or-divider:before, .or-divider:after {
+            content: "";
+            display: block;
+            width: 40%;
+            height: 1px;
+            background: #ddd;
+            position: absolute;
+            top: 50%;
+        }
+        .or-divider:before {
+            left: 0;
+        }
+        .or-divider:after {
+            right: 0;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            flex: 1;
+            text-align: center;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+        .tab.active {
+            background-color: white;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -136,8 +192,23 @@
         </header>
         
         <div class="card">
-            <p>Click the button below to find the nearest Hyderabad Metro station based on your current location.</p>
-            <button id="findNearestBtn" class="btn">Find Nearest Station</button>
+            <div class="tabs">
+                <div class="tab active" data-tab="current-location">Current Location</div>
+                <div class="tab" data-tab="search-location">Search Location</div>
+            </div>
+            
+            <div class="tab-content active" id="current-location-tab">
+                <p>Click the button below to find the nearest Hyderabad Metro station based on your current location.</p>
+                <button id="findNearestBtn" class="btn">Find Nearest Station</button>
+            </div>
+            
+            <div class="tab-content" id="search-location-tab">
+                <p>Enter an address or location in Hyderabad to find the nearest metro stations:</p>
+                <div class="search-container">
+                    <input type="text" id="locationSearch" class="search-input" placeholder="Enter address, landmark or area in Hyderabad">
+                    <button id="searchLocationBtn" class="btn">Search</button>
+                </div>
+            </div>
             
             <div id="loader" class="loader">
                 <div class="spinner"></div>
@@ -229,10 +300,41 @@
 
         // DOM elements
         const findNearestBtn = document.getElementById('findNearestBtn');
+        const searchLocationBtn = document.getElementById('searchLocationBtn');
+        const locationSearch = document.getElementById('locationSearch');
         const loader = document.getElementById('loader');
         const result = document.getElementById('result');
         const stationsList = document.getElementById('stationsList');
         const errorMessage = document.getElementById('errorMessage');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // Tab functionality
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                tab.classList.add('active');
+                
+                // Show corresponding content
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+                
+                // Reset UI
+                resetUI();
+            });
+        });
+
+        // Reset UI function
+        function resetUI() {
+            stationsList.innerHTML = '';
+            errorMessage.style.display = 'none';
+            result.style.display = 'none';
+            loader.style.display = 'none';
+        }
 
         // Calculate distance between two points using Haversine formula
         function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -264,12 +366,57 @@
             return stationsWithDistance.sort((a, b) => a.distance - b.distance).slice(0, 5);
         }
 
-        // Handle the find nearest button click
+        // Display stations results
+        function displayStations(nearestStations, userLat, userLng) {
+            stationsList.innerHTML = '';
+            
+            nearestStations.forEach(station => {
+                const stationElement = document.createElement('div');
+                stationElement.className = 'station-info';
+                
+                // Format distance
+                let distanceText;
+                if (station.distance < 1) {
+                    distanceText = `${(station.distance * 1000).toFixed(0)} meters`;
+                } else {
+                    distanceText = `${station.distance.toFixed(2)} km`;
+                }
+                
+                // Determine line badge(s)
+                let lineBadges = `<span class="line-${station.line}">${station.line.charAt(0).toUpperCase() + station.line.slice(1)}</span>`;
+                
+                // Add interchange information if applicable
+                if (station.interchange) {
+                    lineBadges = '';
+                    station.interchange.forEach(line => {
+                        lineBadges += `<span class="line-${line}">${line.charAt(0).toUpperCase() + line.slice(1)}</span>`;
+                    });
+                }
+                
+                // Create Google Maps directions link
+                const directionsLink = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${station.lat},${station.lng}&travelmode=walking`;
+                
+                stationElement.innerHTML = `
+                    <div class="station-details">
+                        <h3>${station.name}</h3>
+                        <div>${lineBadges}</div>
+                        <p class="station-distance">Distance: ${distanceText}</p>
+                        <a href="${directionsLink}" target="_blank" class="directions-link">Get Directions</a>
+                    </div>
+                `;
+                
+                stationsList.appendChild(stationElement);
+            });
+            
+            // Update UI
+            loader.style.display = 'none';
+            result.style.display = 'block';
+        }
+
+        // Handle the find nearest button click (current location)
         findNearestBtn.addEventListener('click', () => {
             // Reset UI
-            stationsList.innerHTML = '';
-            errorMessage.style.display = 'none';
-            result.style.display = 'none';
+            resetUI();
             loader.style.display = 'block';
             
             // Check if geolocation is supported
@@ -290,47 +437,7 @@
                     const nearestStations = findNearestStations(userLat, userLng);
                     
                     // Display results
-                    nearestStations.forEach(station => {
-                        const stationElement = document.createElement('div');
-                        stationElement.className = 'station-info';
-                        
-                        // Format distance
-                        let distanceText;
-                        if (station.distance < 1) {
-                            distanceText = `${(station.distance * 1000).toFixed(0)} meters`;
-                        } else {
-                            distanceText = `${station.distance.toFixed(2)} km`;
-                        }
-                        
-                        // Determine line badge(s)
-                        let lineBadges = `<span class="line-${station.line}">${station.line.charAt(0).toUpperCase() + station.line.slice(1)}</span>`;
-                        
-                        // Add interchange information if applicable
-                        if (station.interchange) {
-                            lineBadges = '';
-                            station.interchange.forEach(line => {
-                                lineBadges += `<span class="line-${line}">${line.charAt(0).toUpperCase() + line.slice(1)}</span>`;
-                            });
-                        }
-                        
-                        // Create Google Maps directions link
-                        const directionsLink = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${station.lat},${station.lng}&travelmode=walking`;
-                        
-                        stationElement.innerHTML = `
-                            <div class="station-details">
-                                <h3>${station.name}</h3>
-                                <div>${lineBadges}</div>
-                                <p class="station-distance">Distance: ${distanceText}</p>
-                                <a href="${directionsLink}" target="_blank" class="directions-link">Get Directions</a>
-                            </div>
-                        `;
-                        
-                        stationsList.appendChild(stationElement);
-                    });
-                    
-                    // Update UI
-                    loader.style.display = 'none';
-                    result.style.display = 'block';
+                    displayStations(nearestStations, userLat, userLng);
                 },
                 (error) => {
                     // Handle errors
@@ -345,6 +452,62 @@
                     maximumAge: 0
                 }
             );
+        });
+
+        // Handle the search location button click
+        searchLocationBtn.addEventListener('click', () => {
+            // Get the search query
+            const searchQuery = locationSearch.value.trim();
+            
+            if (!searchQuery) {
+                errorMessage.textContent = 'Please enter a location to search.';
+                errorMessage.style.display = 'block';
+                return;
+            }
+            
+            // Reset UI
+            resetUI();
+            loader.style.display = 'block';
+            
+            // Add "Hyderabad" to the query if not present to improve results
+            let fullQuery = searchQuery;
+            if (!searchQuery.toLowerCase().includes('hyderabad')) {
+                fullQuery += ', Hyderabad, Telangana, India';
+            }
+            
+            // Use OpenStreetMap Nominatim API for geocoding
+            const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullQuery)}`;
+            
+            fetch(geocodeUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        // Get coordinates of the first result
+                        const lat = parseFloat(data[0].lat);
+                        const lng = parseFloat(data[0].lon);
+                        
+                        // Find nearest stations
+                        const nearestStations = findNearestStations(lat, lng);
+                        
+                        // Display results
+                        displayStations(nearestStations, lat, lng);
+                    } else {
+                        throw new Error('Location not found');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error geocoding address:', error);
+                    errorMessage.textContent = 'Could not find that location. Please try a different search.';
+                    errorMessage.style.display = 'block';
+                    loader.style.display = 'none';
+                });
+        });
+
+        // Allow pressing Enter in search box to trigger search
+        locationSearch.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                searchLocationBtn.click();
+            }
         });
     </script>
 </body>
