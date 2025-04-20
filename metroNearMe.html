@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nearest Hyderabad Metro Station Finder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #5c2d91; /* Hyderabad Metro purple */
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background-color: #5c2d91;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+        .btn:hover {
+            background-color: #4a2276;
+        }
+        .result {
+            display: none;
+            margin-top: 20px;
+        }
+        .station-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-left: 4px solid #5c2d91;
+            background-color: #f9f9f9;
+        }
+        .station-details {
+            flex-grow: 1;
+        }
+        .station-distance {
+            font-weight: bold;
+            color: #5c2d91;
+        }
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #5c2d91;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        .error-message {
+            color: #e74c3c;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+        }
+        .line-red {
+            background-color: #e74c3c;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .line-green {
+            background-color: #2ecc71;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .line-blue {
+            background-color: #3498db;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .directions-link {
+            color: #5c2d91;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Nearest Hyderabad Metro Station Finder</h1>
+        </header>
+        
+        <div class="card">
+            <p>Click the button below to find the nearest Hyderabad Metro station based on your current location.</p>
+            <button id="findNearestBtn" class="btn">Find Nearest Station</button>
+            
+            <div id="loader" class="loader">
+                <div class="spinner"></div>
+                <p>Finding nearest stations...</p>
+            </div>
+            
+            <div id="errorMessage" class="error-message">
+                Unable to access your location. Please enable location services and try again.
+            </div>
+            
+            <div id="result" class="result">
+                <h2>Nearest Metro Stations:</h2>
+                <div id="stationsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Hyderabad Metro Stations data with coordinates
+        const metroStations = [
+            // Red Line (Corridor I: Miyapur to LB Nagar)
+            { name: "Miyapur", lat: 17.4937, lng: 78.3745, line: "red" },
+            { name: "JNTU College", lat: 17.4985, lng: 78.3911, line: "red" },
+            { name: "KPHB Colony", lat: 17.4933, lng: 78.4001, line: "red" },
+            { name: "Kukatpally", lat: 17.4849, lng: 78.4121, line: "red" },
+            { name: "Balanagar", lat: 17.4759, lng: 78.4266, line: "red" },
+            { name: "Moosapet", lat: 17.4698, lng: 78.4362, line: "red" },
+            { name: "Bharat Nagar", lat: 17.4634, lng: 78.4442, line: "red" },
+            { name: "Erragadda", lat: 17.4572, lng: 78.4499, line: "red" },
+            { name: "ESI Hospital", lat: 17.4508, lng: 78.4554, line: "red" },
+            { name: "SR Nagar", lat: 17.4434, lng: 78.4484, line: "red" },
+            { name: "Panjagutta", lat: 17.4268, lng: 78.4484, line: "red" },
+            { name: "Irrum Manzil", lat: 17.4200, lng: 78.4484, line: "red" },
+            { name: "Khairatabad", lat: 17.4131, lng: 78.4510, line: "red" },
+            { name: "Lakdikapul", lat: 17.4049, lng: 78.4539, line: "red" },
+            { name: "Assembly", lat: 17.3991, lng: 78.4629, line: "red" },
+            { name: "Nampally", lat: 17.3941, lng: 78.4701, line: "red" },
+            { name: "Gandhi Bhavan", lat: 17.3890, lng: 78.4774, line: "red" },
+            { name: "Osmania Medical College", lat: 17.3836, lng: 78.4840, line: "red" },
+            { name: "MG Bus Station", lat: 17.3791, lng: 78.4909, line: "red" },
+            { name: "Malakpet", lat: 17.3716, lng: 78.5025, line: "red" },
+            { name: "New Market", lat: 17.3666, lng: 78.5131, line: "red" },
+            { name: "Musarambagh", lat: 17.3635, lng: 78.5221, line: "red" },
+            { name: "Dilsukhnagar", lat: 17.3683, lng: 78.5248, line: "red" },
+            { name: "Chaitanyapuri", lat: 17.3659, lng: 78.5338, line: "red" },
+            { name: "Victoria Memorial", lat: 17.3649, lng: 78.5427, line: "red" },
+            { name: "LB Nagar", lat: 17.3569, lng: 78.5490, line: "red" },
+            
+            // Green Line (Corridor II: JBS to MGBS)
+            { name: "JBS Parade Ground", lat: 17.4537, lng: 78.5003, line: "green" },
+            { name: "Secunderabad West", lat: 17.4444, lng: 78.4980, line: "green" },
+            { name: "Gandhi Hospital", lat: 17.4375, lng: 78.4952, line: "green" },
+            { name: "Musheerabad", lat: 17.4304, lng: 78.4913, line: "green" },
+            { name: "RTC X Roads", lat: 17.4234, lng: 78.4875, line: "green" },
+            { name: "Chikkadpally", lat: 17.4159, lng: 78.4836, line: "green" },
+            { name: "Narayanguda", lat: 17.4071, lng: 78.4813, line: "green" },
+            { name: "Sultan Bazaar", lat: 17.3977, lng: 78.4795, line: "green" },
+            { name: "MGBS", lat: 17.3779, lng: 78.4838, line: "green" },
+            
+            // Blue Line (Corridor III: Nagole to Raidurg)
+            { name: "Nagole", lat: 17.3911, lng: 78.5588, line: "blue" },
+            { name: "Uppal", lat: 17.4009, lng: 78.5499, line: "blue" },
+            { name: "Stadium", lat: 17.4065, lng: 78.5414, line: "blue" },
+            { name: "NGRI", lat: 17.4134, lng: 78.5321, line: "blue" },
+            { name: "Habsiguda", lat: 17.4171, lng: 78.5264, line: "blue" },
+            { name: "Tarnaka", lat: 17.4197, lng: 78.5189, line: "blue" },
+            { name: "Mettuguda", lat: 17.4300, lng: 78.5099, line: "blue" },
+            { name: "Secunderabad East", lat: 17.4356, lng: 78.5027, line: "blue" },
+            { name: "Paradise", lat: 17.4415, lng: 78.4929, line: "blue" },
+            { name: "Rasoolpura", lat: 17.4372, lng: 78.4825, line: "blue" },
+            { name: "Prakash Nagar", lat: 17.4373, lng: 78.4714, line: "blue" },
+            { name: "Begumpet", lat: 17.4375, lng: 78.4628, line: "blue" },
+            { name: "Ameerpet", lat: 17.4371, lng: 78.4484, line: "blue" },
+            { name: "Madhura Nagar", lat: 17.4326, lng: 78.4339, line: "blue" },
+            { name: "Yusufguda", lat: 17.4274, lng: 78.4225, line: "blue" },
+            { name: "Road No. 5 Jubilee Hills", lat: 17.4225, lng: 78.4122, line: "blue" },
+            { name: "Jubilee Hills Check Post", lat: 17.4307, lng: 78.4064, line: "blue" },
+            { name: "Peddamma Temple", lat: 17.4360, lng: 78.4018, line: "blue" },
+            { name: "Madhapur", lat: 17.4439, lng: 78.3935, line: "blue" },
+            { name: "Durgam Cheruvu", lat: 17.4372, lng: 78.3834, line: "blue" },
+            { name: "Hitec City", lat: 17.4434, lng: 78.3783, line: "blue" },
+            { name: "Raidurg", lat: 17.4494, lng: 78.3754, line: "blue" }
+        ];
+
+        // Add interchange information
+        metroStations.find(s => s.name === "Ameerpet").interchange = ["red", "blue"];
+        metroStations.find(s => s.name === "MGBS").interchange = ["red", "green"];
+        metroStations.find(s => s.name === "JBS Parade Ground").interchange = ["blue", "green"];
+
+        // DOM elements
+        const findNearestBtn = document.getElementById('findNearestBtn');
+        const loader = document.getElementById('loader');
+        const result = document.getElementById('result');
+        const stationsList = document.getElementById('stationsList');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Calculate distance between two points using Haversine formula
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of the earth in km
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2); 
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+            const distance = R * c; // Distance in km
+            return distance;
+        }
+
+        function deg2rad(deg) {
+            return deg * (Math.PI/180);
+        }
+
+        // Find nearest stations
+        function findNearestStations(userLat, userLng) {
+            // Calculate distance to each station
+            const stationsWithDistance = metroStations.map(station => {
+                const distance = calculateDistance(userLat, userLng, station.lat, station.lng);
+                return { ...station, distance };
+            });
+            
+            // Sort by distance
+            return stationsWithDistance.sort((a, b) => a.distance - b.distance).slice(0, 5);
+        }
+
+        // Handle the find nearest button click
+        findNearestBtn.addEventListener('click', () => {
+            // Reset UI
+            stationsList.innerHTML = '';
+            errorMessage.style.display = 'none';
+            result.style.display = 'none';
+            loader.style.display = 'block';
+            
+            // Check if geolocation is supported
+            if (!navigator.geolocation) {
+                errorMessage.textContent = 'Geolocation is not supported by your browser.';
+                errorMessage.style.display = 'block';
+                loader.style.display = 'none';
+                return;
+            }
+            
+            // Get current position
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    
+                    // Find nearest stations
+                    const nearestStations = findNearestStations(userLat, userLng);
+                    
+                    // Display results
+                    nearestStations.forEach(station => {
+                        const stationElement = document.createElement('div');
+                        stationElement.className = 'station-info';
+                        
+                        // Format distance
+                        let distanceText;
+                        if (station.distance < 1) {
+                            distanceText = `${(station.distance * 1000).toFixed(0)} meters`;
+                        } else {
+                            distanceText = `${station.distance.toFixed(2)} km`;
+                        }
+                        
+                        // Determine line badge(s)
+                        let lineBadges = `<span class="line-${station.line}">${station.line.charAt(0).toUpperCase() + station.line.slice(1)}</span>`;
+                        
+                        // Add interchange information if applicable
+                        if (station.interchange) {
+                            lineBadges = '';
+                            station.interchange.forEach(line => {
+                                lineBadges += `<span class="line-${line}">${line.charAt(0).toUpperCase() + line.slice(1)}</span>`;
+                            });
+                        }
+                        
+                        // Create Google Maps directions link
+                        const directionsLink = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${station.lat},${station.lng}&travelmode=walking`;
+                        
+                        stationElement.innerHTML = `
+                            <div class="station-details">
+                                <h3>${station.name}</h3>
+                                <div>${lineBadges}</div>
+                                <p class="station-distance">Distance: ${distanceText}</p>
+                                <a href="${directionsLink}" target="_blank" class="directions-link">Get Directions</a>
+                            </div>
+                        `;
+                        
+                        stationsList.appendChild(stationElement);
+                    });
+                    
+                    // Update UI
+                    loader.style.display = 'none';
+                    result.style.display = 'block';
+                },
+                (error) => {
+                    // Handle errors
+                    console.error("Error getting location:", error);
+                    errorMessage.textContent = 'Unable to access your location. Please enable location services and try again.';
+                    errorMessage.style.display = 'block';
+                    loader.style.display = 'none';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        });
+    </script>
+</body>
+</html>
